@@ -1,0 +1,74 @@
+import xarray as xr 
+import numpy as np 
+import matplotlib.pyplot as plt
+import rioxarray
+import geopandas as gpd
+from rasterio import plot as rasterplot
+from shapely.geometry import mapping
+import os
+import glob
+import pandas as pd
+import cartopy.crs as ccrs
+
+# Extracting specific data from observerd and model 
+grace_ob=xr.open_dataset('C:/Users/rabaniza/Downloads/WaterGAP/twsa_0.5x0.5.nc')
+grace=grace_ob.twsa[10]
+grace=grace/grace
+
+tws_gap=xr.open_dataarray('C:/Users/rabaniza/Downloads/WaterGAP/watergap_22d_WFDEI-GPCC_histsoc_tws_monthly_1901_2016.nc4', decode_times=False)
+
+anomaly= tws_gap[1236:1307]/grace #2004-2009
+tws_gap_clip= tws_gap[1236: 1307]/grace #2004-2009
+
+mean_al=anomaly.mean(axis=0)
+twsa_gap=(tws_gap_clip-mean_al)
+twsa_gap.to_netcdf('mean_waterGAP_GRACE.nc')
+#==================================
+
+
+# cliping the GRACE data for Mississippi watershed 
+
+shp_path = "C:/Users/rabaniza/Downloads/WaterGAP/ezat/FtSmith.shp"
+Missippi_grace_stack = (twsa_gap)
+Missippi_grace_stack.rio.set_spatial_dims(x_dim="lon", y_dim="lat", inplace=True)
+Missippi_grace_stack.rio.write_crs("epsg:4326", inplace=True)
+Mississippi_Shape = gpd.read_file(shp_path, crs="epsg:4326")
+clipped = Missippi_grace_stack.rio.clip(Mississippi_Shape.geometry.apply(mapping), Mississippi_Shape.crs, drop=False)
+world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+clipped[1].plot(ax=world.plot(figsize=(10, 6)))
+Missippi_grace_stack[1].plot(ax=world.plot())
+Sim_wg= clipped[:, :, :].values
+
+plt.imshow(Sim_wg[0])
+plt.show()
+#===================================
+
+
+twsa_grace = xr.open_dataset ("M:/Evaluation tools\CSR_GRACE-FO_RL06_Mascons_Remap.nc")
+twsa_g= twsa_grace['lwe_thickness']*10
+twsa_wg=twsa_g[18:89, :, :]
+
+# cliiping the WaterGAP data for Mississippi watershed 
+shp_path = "C:/Users/rabaniza/Downloads/WaterGAP/ezat/FtSmith.shp"
+Missippi_watergap_stack = (twsa_wg)
+Missippi_watergap_stack.rio.set_spatial_dims(x_dim="lon", y_dim="lat", inplace=True)
+Missippi_watergap_stack.rio.write_crs("epsg:4326", inplace=True)
+Mississippi_Shape = gpd.read_file(shp_path, crs="epsg:4326")
+clipped_grace = Missippi_watergap_stack.rio.clip(Mississippi_Shape.geometry.apply(mapping), Mississippi_Shape.crs, drop=False)
+world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+clipped_grace[1].plot(ax=world.plot(figsize=(10, 6)))
+Missippi_watergap_stack[1].plot(ax=world.plot())
+Obs_gd=clipped_grace[:,:, :].values
+plt.imshow(Obs_gd[0])
+plt.show()
+#===========================================
+
+
+def nse(Obs_gd,Sim_wg):
+    return 1-(np.sum((Obs_gd-Sim_wg)**2, axis=0)/np.sum((Obs_gd-np.mean(Obs_gd, axis=0))**2,  axis=0))
+
+mean_gd=np.nanmean(Obs_gd,axis=(1,2))
+mean_wg=np.nanmean(Sim_wg,axis=(1,2))
+
+c=nse(mean_gd, mean_wg)
+print(c)
