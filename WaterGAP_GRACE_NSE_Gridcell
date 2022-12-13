@@ -5,25 +5,27 @@ import matplotlib.pyplot as plt
 import rioxarray
 import geopandas as gpd
 
-# calculating the grace mean 
+# calculating the WaterGAP anamolies
 grace_data=xr.open_dataset('C:\\Users\\rabaniza\\Downloads\\WaterGAP\\twsa_0.5x0.5.nc') # GRACE mask
 grace=grace_data.twsa[10]
 grace=grace/grace
 
-tws_gap=xr.open_dataarray('C:\\Users\\rabaniza\\Downloads\\WaterGAP\\watergap_22d_WFDEI-GPCC_histsoc_tws_monthly_1901_2016.nc4', decode_times=False)
+# WaterGAP tws file
+tws_watergap=xr.open_dataarray('C:\\Users\\rabaniza\\Downloads\\WaterGAP\\watergap_22d_WFDEI-GPCC_histsoc_tws_monthly_1901_2016.nc4', decode_times=False)
 
-anomaly= tws_gap[1236:1307]/grace #2004-2009
-tws_gap_clip= tws_gap[1236:1307]/grace #2004-2016
+anomaly= tws_watergap[1236:1307]/grace #2004-2009
+tws_watergap_clip= tws_watergap[1236:1307]/grace #2004-2009
 
 mean_al=anomaly.mean(axis=0)
-twsa_Watergap=(tws_gap_clip-mean_al)
-Simulation= twsa_Watergap[:, :, :].values
+twsa_watergap=(tws_watergap_clip-mean_al) # watergap anamolies
+Simulation= twsa_watergap[:, :, :].values
 
+# open the GRACE CSR 
 twsa_grace = xr.open_dataset("M:\Evaluation tools\CSR_GRACE-FO_RL06_Mascons_Remap.nc")
 twsa_g= twsa_grace['lwe_thickness']*10
 Observe=twsa_g[18:89,:, :].values
 
-
+# Calculating the NSE for all WaterGAP and GRACE data based on gridcells 
 def nse(Observe,Simulation):
      return 1-(np.sum((Observe-Simulation)**2, axis=0)/np.sum((Observe-np.mean(Observe, axis=0))**2,  axis=0))
 
