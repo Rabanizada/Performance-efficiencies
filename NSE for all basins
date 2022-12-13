@@ -1,0 +1,97 @@
+import xarray as xr 
+import numpy as np 
+import matplotlib.pyplot as plt
+import rioxarray
+import geopandas as gpd
+from rasterio import plot as rasterplot
+from shapely.geometry import mapping
+import os
+import glob
+import pandas as pd
+import cartopy.crs as ccrs
+
+# NSE for all watersheds
+
+grace_ob=xr.open_dataset('C:/Users/rabaniza/Downloads/WaterGAP/twsa_0.5x0.5.nc')
+grace=grace_ob.twsa[10]
+grace=grace/grace
+
+tws_gap=xr.open_dataarray('C:/Users/rabaniza/Downloads/WaterGAP/watergap_22d_WFDEI-GPCC_histsoc_tws_monthly_1901_2016.nc4', decode_times=False)
+
+anomaly= tws_gap[1236:1307]/grace #2004-2009
+tws_gap_clip= tws_gap[1236: 1307]/grace #2004-2009
+
+mean_al=anomaly.mean(axis=0)
+twsa_gap=(tws_gap_clip-mean_al)
+#==================================
+
+twsa_grace = xr.open_dataset ("M:/Evaluation tools\CSR_GRACE-FO_RL06_Mascons_Remap.nc")
+twsa_g= twsa_grace['lwe_thickness']*10
+twsa_wg=twsa_g[18:89, :, :]
+    
+
+
+
+def nse(Obs_gd,Sim_wg):
+    return 1-(np.sum((Obs_gd-Sim_wg)**2, axis=0)/np.sum((Obs_gd-np.mean(Obs_gd, axis=0))**2,  axis=0))
+
+
+shape_file_id = []
+nse_from_shapefile = []
+# cliping the GRACE data for WaterGAP watersheds
+
+shp_path = glob.glob("C:/Users/rabaniza/Downloads/WaterGAP/for hannes/*.shp")
+for i in range(len(shp_path)):
+    shp_id = shp_path[i].split("\\")[1].split(".")[0]
+    shape_file_id.append(shp_id)
+    # # ==============================
+    # # # comput Nse
+    # # ===============================
+    # # simulated
+    waterGAP_grace_stack = twsa_gap
+    waterGAP_grace_stack.rio.set_spatial_dims(x_dim="lon", y_dim="lat", inplace=True)
+    waterGAP_grace_stack.rio.write_crs("epsg:4326", inplace=True)
+    WaterGAP_Shape = gpd.read_file(shp_path[i], crs="epsg:4326")
+    clipped = waterGAP_grace_stack.rio.clip(WaterGAP_Shape.geometry.apply(mapping), WaterGAP_Shape.crs, drop=False)
+
+    Sim_wg = clipped.values
+
+
+    # observed 
+    all_watersheds_watergap_stack = (twsa_wg)
+    all_watersheds_watergap_stack.rio.set_spatial_dims(x_dim="lon", y_dim="lat", inplace=True)
+    all_watersheds_watergap_stack.rio.write_crs("epsg:4326", inplace=True)
+    clipped_grace = all_watersheds_watergap_stack.rio.clip(WaterGAP_Shape.geometry.apply(mapping), WaterGAP_Shape.crs, drop=False)
+    Obs_gd=clipped_grace.values
+
+
+    mean_gd=np.nanmean(Obs_gd,axis=(1,2))
+    mean_wg=np.nanmean(Sim_wg,axis=(1,2))
+
+    nse_shp = nse(mean_gd, mean_wg)
+    nse_from_shapefile.append(nse_shp)
+
+
+shp_path_new = "C:/Users/rabaniza/Downloads/WaterGAP/basins_200k_incl_upstream_shp/1134900.shp"
+ini_shape =  WaterGAP_Shape = gpd.read_file(shp_path_new, crs="epsg:4326")
+ini_shape["Id"]=int(shape_file_id[0])
+ini_shape["nse"]=nse_from_shapefile[0]
+
+for i in range(len(shp_path)-1):
+    # # ==============================
+    # # # comput Nse
+    # # ===============================
+    # # simulated
+    WaterGAP_Shape2 = gpd.read_file(shp_path[i+1], crs="epsg:4326")
+    WaterGAP_Shape2["Id"]=shape_file_id[i+1]
+    WaterGAP_Shape2["nse"]=nse_from_shapefile[i+1]
+    ini_shape=pd.concat([ini_shape, WaterGAP_Shape2])
+
+
+ax = plt.axes(projection=ccrs.PlateCarree())
+
+ax.set_extent([-180,180,90,-90])
+ax.coastlines()
+ini_shape.plot(column="nse",ax=ax,cmap="tab20" ,legend=True)
+
+plt.show()
