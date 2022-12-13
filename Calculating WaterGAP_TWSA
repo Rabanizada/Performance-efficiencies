@@ -1,8 +1,14 @@
+## Load libraries
+import pandas as pd
+import matplotlib.pyplot as plt
+import geopandas as gpd
+
 # calculating the WaterGAP anamolies
 grace_data=xr.open_dataset('C:\\Users\\rabaniza\\Downloads\\WaterGAP\\twsa_0.5x0.5.nc') # GRACE mask
 grace=grace_data.twsa[10]
 grace=grace/grace
 
+# WaterGAP tws file
 tws_watergap=xr.open_dataarray('C:\\Users\\rabaniza\\Downloads\\WaterGAP\\watergap_22d_WFDEI-GPCC_histsoc_tws_monthly_1901_2016.nc4', decode_times=False)
 
 anomaly= tws_watergap[1236:1307]/grace #2004-2009
