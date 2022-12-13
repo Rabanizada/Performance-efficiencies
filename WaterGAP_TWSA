@@ -1,0 +1,4 @@
+# calculating the WaterGAP anamolies
+grace_data=xr.open_dataset('C:\\Users\\rabaniza\\Downloads\\WaterGAP\\twsa_0.5x0.5.nc')
+grace=grace_data.twsa[10]
+grace=grace/grace
