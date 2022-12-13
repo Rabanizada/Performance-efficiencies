@@ -6,7 +6,7 @@ grace=grace/grace
 tws_watergap=xr.open_dataarray('C:\\Users\\rabaniza\\Downloads\\WaterGAP\\watergap_22d_WFDEI-GPCC_histsoc_tws_monthly_1901_2016.nc4', decode_times=False)
 
 anomaly= tws_watergap[1236:1307]/grace #2004-2009
-tws_watergap_clip= tws_watergap[1236:1307]/grace #2004-2016
+tws_watergap_clip= tws_watergap[1236:1307]/grace #2004-2009
 
 mean_al=anomaly.mean(axis=0)
 twsa_watergap=(tws_watergap_clip-mean_al)
